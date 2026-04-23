@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>الأكاديمية - المنهج الحديث</title>
+    
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <style>
+        :root { 
+            --neon: #00F5C4; /* اللون الأخضر النيون المفضل لك */
+            --bg: #050d0a; 
+            --card-bg: rgba(10, 25, 20, 0.9);
+            --plyr-color-main: #00b3ff; /* المشغل نفسه بيفضل أزرق عشان يكون "المشغل الأزرق" */
+        }
+        
+        body { background: var(--bg); color: #fff; font-family: 'Cairo', sans-serif; margin: 0; overflow-x: hidden; }
+        
+        /* خلفية النيون المتحركة */
+        .neon-bg { position: fixed; inset: 0; z-index: -1; background-image: radial-gradient(rgba(0, 245, 196, 0.1) 1px, transparent 1px); background-size: 45px 45px; }
+        
+        .container { max-width: 500px; margin: 0 auto; padding: 20px; }
+        
+        header { text-align: center; padding: 30px 0; position: relative; }
+        .logo { font-size: 35px; font-weight: 900; color: var(--neon); text-shadow: 0 0 20px var(--neon); }
+        
+        .back-btn { position: absolute; right: 0; top: 40px; background: rgba(0, 245, 196, 0.1); border: 1.5px solid var(--neon); color: #fff; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: 0.3s; }
+        .back-btn:hover { background: var(--neon); color: #000; }
+
+        .fade-in { animation: fadeInUp 0.6s ease both; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* كروت المحاضرات */
+        .card { 
+            background: var(--card-bg); 
+            border-radius: 35px; 
+            padding: 12px; 
+            margin-bottom: 25px; 
+            border: 1px solid rgba(0, 245, 196, 0.2);
+            transition: 0.4s;
+            cursor: pointer;
+            backdrop-filter: blur(15px);
+        }
+        .card:hover { transform: translateY(-8px); border-color: var(--neon); box-shadow: 0 15px 30px rgba(0, 245, 196, 0.2); }
+        .card img { width: 100%; height: 230px; border-radius: 25px; object-fit: cover; }
+        .card-content { padding: 15px 10px; text-align: right; }
+        .card-title { font-size: 20px; font-weight: 800; color: #fff; }
+        .card-desc { color: #6d7c78; font-size: 13px; margin-top: 5px; font-weight: bold; }
+
+        /* قائمة الفيديوهات */
+        .video-item {
+            background: rgba(255, 255, 255, 0.05);
+            margin-bottom: 15px;
+            padding: 18px;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            flex-direction: row-reverse;
+            border: 1px solid rgba(0, 245, 196, 0.1);
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .video-item:hover { background: rgba(0, 245, 196, 0.08); border-color: var(--neon); transform: scale(1.02); }
+        
+        .play-circle { 
+            width: 50px; height: 50px; background: var(--neon); border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            box-shadow: 0 0 15px var(--neon); flex-shrink: 0;
+        }
+        .play-circle svg { width: 22px; fill: #000; }
+        
+        .video-text { flex: 1; margin-right: 18px; text-align: right; }
+        .video-name { font-weight: 800; font-size: 16px; color: #fff; line-height: 1.5; }
+
+        /* مودال المشغل */
+        #playerWrap { display: none; position: fixed; inset: 0; background: #000; z-index: 10000; flex-direction: column; }
+        .modal-top { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.8); }
+        .v-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; }
+        .close-vid { background: #ff4757; color: #fff; border: none; padding: 10px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; }
+
+        .plyr--full-ui { --plyr-font-family: 'Cairo'; }
+    </style>
+</head>
+<body>
+
+<div class="neon-bg"></div>
+
+<div class="container">
+    <header>
+        <button id="back-btn" class="back-btn" onclick="goHome()" style="display:none">❮ رجوع</button>
+        <div class="logo">ACADEMY</div>
+    </header>
+
+    <div id="home-view" class="fade-in"></div>
+    <div id="parts-view" style="display:none" class="fade-in"></div>
+</div>
+
+<div id="playerWrap">
+    <div class="modal-top">
+        <button class="close-vid" onclick="closeVideo()">إغلاق ✕</button>
+        <div id="current-title" style="color:var(--neon); font-weight:900; font-size: 13px;"></div>
+    </div>
+    <div class="v-wrapper">
+        <video id="v" playsinline controls></video>
+    </div>
+</div>
+
+<script>
+    // تم استرجاع جميع المحاضرات كاملة
+    const lecs = [
+        {
+            "title":"المحاضرة الأولى - كلمات الوحدة السابعة",
+            "image":"https://nzamkedu.com/englishawy/public/images/lessons/img_69920562ad6010.80862936.jpg",
+            "description":"كلمات الوحدة السابعة الجزء الأول - شرح وحل وكويزات",
+            "parts":[
+                {"title":"المحاضرة الأولى - كلمات الوحدة السابعة - الجزء الأول","url":"https://cdn1.mrenglishawy.com/media/englishawy/0000Second/20260215/2sec-main.m3u8"},
+                {"title":"المحاضرة الأولى - كلمات الوحدة السابعة - الجزء الثاني","url":"https://cdn1.mrenglishawy.com/media/englishawy/0000Second/20260215/2sec-ans.m3u8"}
+            ]
+        },
+        {
+            "title":"المحاضرة الثانية - قواعد الوحدة السابعة",
+            "image":"https://nzamkedu.com/englishawy/public/images/lessons/img_6998ab80073fe2.72455440.jpg",
+            "description":"شرح وحل قواعد الوحدة السابعة بالتفصيل",
+            "parts":[
+                {"title":"المحاضرة الثانية - قواعد الوحدة السابعة - الجزء الأول","url":"https://cdn1.mrenglishawy.com/media/englishawy/0000Second/20260220/2ndlecgrm.m3u8"},
+                {"title":"المحاضرة الثانية - قواعد الوحدة السابعة - الجزء الثاني","url":"https://cdn1.mrenglishawy.com/media/englishawy/0000Second/20260220/2nd-ans-grm.m3u8"}
+            ]
+        },
+        {
+            "title":"المحاضرة الثالثة - تتمة الوحدة السابعة",
+            "image":"https://nzamkedu.com/englishawy/public/images/lessons/img_699b4d4ec7f4c6.62950487.jpg",
+            "description":"كلمات الوحدة السابعة الجزء الثاني",
+            "parts":[
+                {"title":"المحاضرة الثالثة - كلمات الجزء الثاني - فيديو 1","url":"https://cdn1.mrenglishawy.com/media/englishawy/0000Second/2026022-2/voc2nd-1.m3u8"},
+                {"title":"المحاضرة الثالثة - كلمات الجزء الثاني - فيديو 2","url":"https://cdn1.mrenglishawy.com/media/englishawy/0000Second/2026022-2/2sec-7-2.m3u8"}
+            ]
+        },
+        {
+            "title":"المحاضرة الرابعة - سكيلز",
+            "image":"https://nzamkedu.com/englishawy/public/images/lessons/img_69a1d8b86ac5a3.80159824.jpg",
+            "description":"حل قطعة فهم + ترجمة وكتابة مقال",
+            "parts":[
+                {"title":"المحاضرة الرابعة - سكيلز - الجزء الأول","url":"https://cdn1.mrenglishawy.com/media/englishawy/0000Second/2026-02-27-skills/2nd-sklills-1.m3u8"},
+                {"title":"المحاضرة الرابعة - سكيلز - الجزء الثاني","url":"https://cdn1.mrenglishawy.com/media/englishawy/0000Second/2026-02-27-skills/2nd-sklills-2.m3u8"}
+            ]
+        }
+    ];
+
+    let hls = null, plyr = null;
+
+    function renderHome() {
+        document.getElementById('back-btn').style.display = 'none';
+        document.getElementById('parts-view').style.display = 'none';
+        const home = document.getElementById('home-view');
+        home.style.display = 'block';
+        home.innerHTML = lecs.map((l, i) => `
+            <div class="card" onclick="openLec(${i})">
+                <img src="${l.image}">
+                <div class="card-content">
+                    <div class="card-title">${l.title}</div>
+                    <div class="card-desc">${l.description}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function openLec(i) {
+        document.getElementById('home-view').style.display = 'none';
+        document.getElementById('back-btn').style.display = 'block';
+        const view = document.getElementById('parts-view');
+        view.style.display = 'block';
+        view.innerHTML = `<h3 style="text-align:right; margin:10px 10px 25px; color:var(--neon)">اختر الفيديو للتشغيل:</h3>` + 
+        lecs[i].parts.map(p => `
+            <div class="video-item" onclick="play('${p.url}', '${p.title}')">
+                <div class="play-circle"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+                <div class="video-text">
+                    <div class="video-name">${p.title}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function play(url, title) {
+        document.getElementById('playerWrap').style.display = 'flex';
+        document.getElementById('current-title').innerText = title;
+        const v = document.getElementById('v');
+
+        if (Hls.isSupported()) {
+            if (hls) hls.destroy();
+            hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(v);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                const qualities = hls.levels.map((l) => l.height);
+                qualities.unshift(0); 
+
+                if (plyr) plyr.destroy();
+                plyr = new Plyr(v, { 
+                    quality: { 
+                        default: 0, 
+                        options: qualities, 
+                        forced: true, 
+                        onChange: (q) => { 
+                            if(q === 0) hls.currentLevel = -1;
+                            else hls.levels.forEach((lvl, idx) => { if(lvl.height === q) hls.currentLevel = idx; }); 
+                        }
+                    },
+                    i18n: { quality: 'الجودة', speed: 'السرعة', auto: 'تلقائي' }
+                });
+                v.play();
+            });
+        }
+    }
+
+    function closeVideo() { 
+        document.getElementById('playerWrap').style.display='none'; 
+        const v = document.getElementById('v');
+        v.pause(); 
+        if(hls) hls.destroy();
+    }
+
+    function goHome() { renderHome(); }
+    renderHome();
+</script>
+</body>
+</html>
